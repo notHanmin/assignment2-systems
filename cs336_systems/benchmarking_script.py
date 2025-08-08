@@ -116,10 +116,48 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
 
     return np.mean(timings), np.std(timings)
 
+def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, batch_size, context_length):
+    model.to(device)
+    model.train()
+    input_data = torch.randint(0, model.vocab_size, (batch_size, context_length), device=device)
+    timings = []
+
+    print(f"Running {warmup_steps} warm-up steps...")
+    for _ in range(warmup_steps):
+        logits = model(input_data)
+        loss = logits.sum()
+        optimizer.zero_grad()
+        loss.backward()
+
+    print(f"Running {running_steps} measurement steps within NVTX range...")
+    with nvtx.range("Measurement Steps"):
+        for _ in range(running_steps):
+            torch.cuda.synchronize()
+            start_time = timeit.default_timer()
+            torch.cuda.memory._record_memory_history(max_entries=1000000)
+            with nvtx.range("Forward pass"):
+                logits = model(input_data)
+                loss = logits.sum()
+                
+
+            with nvtx.range("Backward pass"):
+                optimizer.zero_grad()
+                loss.backward()
+
+            with nvtx.range("Optimizer step"):
+                optimizer.step()
+            torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
+            torch.cuda.memory._record_memory_history(enabled=None)
+            torch.cuda.synchronize()
+            end_time = timeit.default_timer()
+            
+            timings.append(end_time - start_time)
+
+    return np.mean(timings), np.std(timings)
 
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    vocab_size = 10000
+    vocab_size = 1
     batch_size = 4
     warmup_configs = [0, 1, 2, 5]
     running_steps = 10
@@ -155,15 +193,15 @@ def main():
 
         for num_warmup in warmup_configs:
             #avg_fwd, std_fwd, avg_bwd, std_bwd = run_benchmark_with_nvtx(
-            avg, std = run_benchmark_with_nvtx(
+            avg, std = run_benchmark_attn(
                 model, optimizer, device,
                 num_warmup, running_steps, batch_size, context_length
             )
-            '''print(
-                f"Warm-up Steps: {num_warmup:<2} | "
-                f"Forward Avg: {avg_fwd:.6f}s (Std: {std_fwd:.6f}) | "
-                f"Backward Avg: {avg_bwd:.6f}s (Std: {std_bwd:.6f})"
-            )'''
+            #print(
+                #f"Warm-up Steps: {num_warmup:<2} | "
+                #f"Forward Avg: {avg_fwd:.6f}s (Std: {std_fwd:.6f}) | "
+                #f"Backward Avg: {avg_bwd:.6f}s (Std: {std_bwd:.6f})"
+            #)
 
 if __name__ == "__main__":
     main()
