@@ -127,10 +127,13 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
 
     return np.mean(timings), np.std(timings)
 
-<<<<<<< HEAD
 def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, batch_size, context_length):
-    model.to(device)
+    
     model.train()
+
+    dtype = torch.bfloat16
+    autocast_context = torch.autocast(device_type=device, dtype=dtype)
+
     input_data = torch.randint(0, model.vocab_size, (batch_size, context_length), device=device)
     timings = []
 
@@ -148,7 +151,8 @@ def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, ba
             start_time = timeit.default_timer()
             torch.cuda.memory._record_memory_history(max_entries=1000000)
             with nvtx.range("Forward pass"):
-                logits = model(input_data)
+                with autocast_context:
+                    logits = model(input_data)
                 loss = logits.sum()
                 
 
@@ -166,17 +170,13 @@ def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, ba
             timings.append(end_time - start_time)
 
     return np.mean(timings), np.std(timings)
-=======
-def benchmark_attn(model, optimizer, device):
-
->>>>>>> 3331f50 (Generate snapshots)
 
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     vocab_size = 1
     batch_size = 4
     warmup_configs = [0, 1, 2, 5]
-    running_steps = 10
+    running_steps = 100
 
     model_params = {
         # d_model, d_ff, num_layers, num_heads, context_length
@@ -202,15 +202,17 @@ def main():
             vocab_size=vocab_size, context_length=context_length, d_model=d_model,
             num_layers=num_layers, num_heads=num_heads, d_ff=d_ff, rope_theta=10000
         )
-        optimizer = AdamW(model.parameters())
+        model.to(device)
+        compiled_model = torch.compile(model)
+        optimizer = AdamW(compiled_model.parameters())
 
         print(f"\nModel Configuration: {size}")
         print("-" * 60)
 
-        for num_warmup in warmup_configs:
+        for num_warmup in warmup_configs[:2]:
             #avg_fwd, std_fwd, avg_bwd, std_bwd = run_benchmark_with_nvtx(
             avg, std = run_benchmark_attn(
-                model, optimizer, device,
+                compiled_model, optimizer, device,
                 num_warmup, running_steps, batch_size, context_length
             )
             #print(
