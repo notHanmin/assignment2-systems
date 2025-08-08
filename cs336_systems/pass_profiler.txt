@@ -1,0 +1,71 @@
+--- Profiling Forward and Backward Passes ---
+
+Model Configuration: small_128
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.066210s (Std: 0.082695) | Backward Avg: 0.061288s (Std: 0.057127)
+Warm-up Steps: 1  | Forward Avg: 0.032069s (Std: 0.000643) | Backward Avg: 0.043048s (Std: 0.004688)
+Warm-up Steps: 2  | Forward Avg: 0.032245s (Std: 0.000608) | Backward Avg: 0.040165s (Std: 0.006666)
+Warm-up Steps: 5  | Forward Avg: 0.031939s (Std: 0.000169) | Backward Avg: 0.040059s (Std: 0.001127)
+
+Model Configuration: small_256
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.023732s (Std: 0.002069) | Backward Avg: 0.039927s (Std: 0.001883)
+Warm-up Steps: 1  | Forward Avg: 0.029596s (Std: 0.000910) | Backward Avg: 0.038899s (Std: 0.000794)
+Warm-up Steps: 2  | Forward Avg: 0.031281s (Std: 0.001083) | Backward Avg: 0.040408s (Std: 0.001771)
+Warm-up Steps: 5  | Forward Avg: 0.032238s (Std: 0.001935) | Backward Avg: 0.041555s (Std: 0.000579)
+
+Model Configuration: medium_128
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.042640s (Std: 0.003757) | Backward Avg: 0.062760s (Std: 0.007293)
+Warm-up Steps: 1  | Forward Avg: 0.044140s (Std: 0.000537) | Backward Avg: 0.059989s (Std: 0.001035)
+Warm-up Steps: 2  | Forward Avg: 0.043998s (Std: 0.000627) | Backward Avg: 0.059273s (Std: 0.000379)
+Warm-up Steps: 5  | Forward Avg: 0.044574s (Std: 0.000367) | Backward Avg: 0.059257s (Std: 0.000603)
+
+Model Configuration: medium_256
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.042780s (Std: 0.004050) | Backward Avg: 0.080252s (Std: 0.010275)
+Warm-up Steps: 1  | Forward Avg: 0.041931s (Std: 0.000999) | Backward Avg: 0.070308s (Std: 0.000270)
+Warm-up Steps: 2  | Forward Avg: 0.042220s (Std: 0.001309) | Backward Avg: 0.070275s (Std: 0.000273)
+Warm-up Steps: 5  | Forward Avg: 0.041993s (Std: 0.000336) | Backward Avg: 0.070302s (Std: 0.000174)
+
+Model Configuration: large_128
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.058020s (Std: 0.007615) | Backward Avg: 0.104395s (Std: 0.024709)
+Warm-up Steps: 1  | Forward Avg: 0.050946s (Std: 0.008631) | Backward Avg: 0.081064s (Std: 0.004263)
+Warm-up Steps: 2  | Forward Avg: 0.045502s (Std: 0.006578) | Backward Avg: 0.078697s (Std: 0.002609)
+Warm-up Steps: 5  | Forward Avg: 0.045619s (Std: 0.006805) | Backward Avg: 0.079286s (Std: 0.002998)
+
+Model Configuration: large_256
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.075028s (Std: 0.000213) | Backward Avg: 0.146019s (Std: 0.000324)
+Warm-up Steps: 1  | Forward Avg: 0.075416s (Std: 0.000213) | Backward Avg: 0.146352s (Std: 0.000307)
+Warm-up Steps: 2  | Forward Avg: 0.075322s (Std: 0.000200) | Backward Avg: 0.146468s (Std: 0.000264)
+Warm-up Steps: 5  | Forward Avg: 0.075563s (Std: 0.000271) | Backward Avg: 0.146709s (Std: 0.000225)
+
+Model Configuration: xl_128
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.077081s (Std: 0.000371) | Backward Avg: 0.139753s (Std: 0.001136)
+Warm-up Steps: 1  | Forward Avg: 0.077381s (Std: 0.000322) | Backward Avg: 0.139331s (Std: 0.000391)
+Warm-up Steps: 2  | Forward Avg: 0.077337s (Std: 0.000283) | Backward Avg: 0.139643s (Std: 0.000452)
+Warm-up Steps: 5  | Forward Avg: 0.077489s (Std: 0.000281) | Backward Avg: 0.139936s (Std: 0.000515)
+
+Model Configuration: xl_256
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.148560s (Std: 0.000938) | Backward Avg: 0.275761s (Std: 0.000403)
+Warm-up Steps: 1  | Forward Avg: 0.148984s (Std: 0.000163) | Backward Avg: 0.276107s (Std: 0.000390)
+Warm-up Steps: 2  | Forward Avg: 0.149770s (Std: 0.000238) | Backward Avg: 0.277402s (Std: 0.000560)
+Warm-up Steps: 5  | Forward Avg: 0.150280s (Std: 0.000235) | Backward Avg: 0.278815s (Std: 0.000698)
+
+Model Configuration: 2.7b_128
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.106953s (Std: 0.000763) | Backward Avg: 0.240489s (Std: 0.138999)
+Warm-up Steps: 1  | Forward Avg: 0.107818s (Std: 0.000458) | Backward Avg: 0.195391s (Std: 0.000935)
+Warm-up Steps: 2  | Forward Avg: 0.108421s (Std: 0.000242) | Backward Avg: 0.196047s (Std: 0.000763)
+Warm-up Steps: 5  | Forward Avg: 0.109190s (Std: 0.000283) | Backward Avg: 0.195914s (Std: 0.000736)
+
+Model Configuration: 2.7b_256
+------------------------------------------------------------
+Warm-up Steps: 0  | Forward Avg: 0.214821s (Std: 0.002093) | Backward Avg: 0.387463s (Std: 0.002526)
+Warm-up Steps: 1  | Forward Avg: 0.216204s (Std: 0.000711) | Backward Avg: 0.389796s (Std: 0.000565)
+Warm-up Steps: 2  | Forward Avg: 0.217834s (Std: 0.001115) | Backward Avg: 0.391864s (Std: 0.001101)
+Warm-up Steps: 5  | Forward Avg: 0.218967s (Std: 0.000537) | Backward Avg: 0.394177s (Std: 0.001323)
