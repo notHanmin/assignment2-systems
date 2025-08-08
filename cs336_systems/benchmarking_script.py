@@ -27,6 +27,8 @@ def run_benchmark(model, optimizer, device, warmup_steps, running_steps, batch_s
     model.to(device)
     model.train()
 
+    autocast_context = torch.autocast(device_type=device, dtype=dtype)
+
     # Generate a single, reusable batch of random data
     input_data = torch.randint(0, model.vocab_size, (batch_size, context_length), device=device)
 
@@ -38,7 +40,8 @@ def run_benchmark(model, optimizer, device, warmup_steps, running_steps, batch_s
         torch.cuda.synchronize()
         start_fwd = timeit.default_timer()
         
-        logits = model(input_data)
+        with autocast_context:
+            logits = model(input_data)
         
         torch.cuda.synchronize()
         end_fwd = timeit.default_timer()
@@ -74,6 +77,10 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
     
     model.to(device)
     model.train()
+
+    dtype = torch.bfloat16
+    autocast_context = torch.autocast(device_type=device, dtype=dtype)
+
     input_data = torch.randint(0, model.vocab_size, (batch_size, context_length), device=device)
     timings = []
 
@@ -98,6 +105,10 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
             torch.cuda.memory._record_memory_history(max_entries=1000000)
             with nvtx.range("Forward pass"):
                 logits = model(input_data)
+                torch.cuda.memory._dump_snapshot("memory_snapshot_forward_without_mixed.pickle")
+                #with autocast_context:
+                    #logits = model(input_data)
+                    #torch.cuda.memory._dump_snapshot("memory_snapshot_forward.pickle")
                 loss = logits.sum()
                 
 
@@ -107,7 +118,7 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
 
             with nvtx.range("Optimizer step"):
                 optimizer.step()
-            torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
+            torch.cuda.memory._dump_snapshot("memory_snapshot_full_without_mixed.pickle")
             torch.cuda.memory._record_memory_history(enabled=None)
             torch.cuda.synchronize()
             end_time = timeit.default_timer()
@@ -116,6 +127,7 @@ def run_benchmark_with_nvtx(model, optimizer, device, warmup_steps, running_step
 
     return np.mean(timings), np.std(timings)
 
+<<<<<<< HEAD
 def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, batch_size, context_length):
     model.to(device)
     model.train()
@@ -154,6 +166,10 @@ def run_benchmark_attn(model, optimizer, device, warmup_steps, running_steps, ba
             timings.append(end_time - start_time)
 
     return np.mean(timings), np.std(timings)
+=======
+def benchmark_attn(model, optimizer, device):
+
+>>>>>>> 3331f50 (Generate snapshots)
 
 def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -164,7 +180,7 @@ def main():
 
     model_params = {
         # d_model, d_ff, num_layers, num_heads, context_length
-        'large_256' : [1280, 5120, 36, 20, 256]
+        'xl_256' : [1600, 6400, 48, 25, 256]
 
         # 'small_128' : [768, 3072, 12, 12, 128],
         # 'small_256' : [768, 3072, 12, 12, 256],
