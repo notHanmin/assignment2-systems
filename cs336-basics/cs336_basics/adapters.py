@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import json
 from torch import Tensor, nn
-from common import gpt2_bytes_to_unicode
+from .common import gpt2_bytes_to_unicode
 import math
 import einops
 

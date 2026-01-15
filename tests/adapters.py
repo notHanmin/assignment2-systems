@@ -8,6 +8,14 @@ import einops
 import triton
 import triton.language as tl
 
+import sys
+import os
+
+# Add the cs336-basics directory to the path
+cs336_basics_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'cs336-basics'))
+sys.path.insert(0, cs336_basics_path)
+from cs336_basics.adapters import run_scaled_dot_product_attention
+
 def FlashAttentionForward(Q, K, V, Br, Bc):
     batch_size = Q.shape[0]
     N = Q.shape[1]
@@ -219,8 +227,8 @@ def FlashAttentionForwardTriton(
     oi = 1 / li[:, None] * oi
     li = mi + tl.log(li)
 
-    tl.store(O_block_ptr, oi, boundary_check=(0, 1))
-    tl.store(L_block_ptr, li, boundary_check=(0,))        
+    tl.store(O_block_ptr, oi.to(O_block_ptr.type.element_ty.element_ty), boundary_check=(0, 1))
+    tl.store(L_block_ptr, li.to(O_block_ptr.type.element_ty.element_ty), boundary_check=(0,))        
 
 @triton.jit
 def FlashAttentionBackwardTriton(
@@ -342,21 +350,21 @@ def FlashAttentionBackwardTriton(
         Sij = tl.where(mask_combined if is_causal else mask, Sij, float("-inf"))
 
         Pij = tl.exp(Sij - Li[:, None])
-        dVj = dVj + tl.dot(tl.trans(Pij), dOi)
+        dVj = dVj + tl.dot(tl.trans(Pij).to(dOi.dtype), dOi)
         dPij = tl.dot(dOi, tl.trans(Vj))
         dSij = Pij * (dPij - Di[:, None]) * scale 
-        dQi = tl.dot(dSij, Kj)
+        dQi = tl.dot(dSij.to(Kj.dtype), Kj)
         dQi_ptrs = dQ_ptr + batch_index * stride_dqb + row_indices[:,None] * stride_dqq + tl.arange(0, D)[None, :] * stride_dqd
         tl.atomic_add(dQi_ptrs, dQi)
-        dKj = dKj + tl.dot(tl.trans(dSij), Qi)
+        dKj = dKj + tl.dot(tl.trans(dSij).to(Qi.dtype), Qi)
 
         Q_block_ptr = Q_block_ptr.advance((Br, 0))
         O_block_ptr = O_block_ptr.advance((Br, 0))
         dO_block_ptr = dO_block_ptr.advance((Br, 0))
         L_block_ptr = L_block_ptr.advance((Br, ))
 
-    tl.store(dK_block_ptr, dKj, boundary_check=(0, 1))
-    tl.store(dV_block_ptr, dVj, boundary_check=(0, 1))
+    tl.store(dK_block_ptr, dKj.to(Kj.dtype), boundary_check=(0, 1))
+    tl.store(dV_block_ptr, dVj.to(Vj.dtype), boundary_check=(0, 1))
 
 class FlashAttention2Triton(torch.autograd.Function):
         @staticmethod
@@ -442,6 +450,78 @@ def get_flashattention_autograd_function_triton() -> Type:
     return FlashAttention2Triton
     #raise NotImplementedError
 
+def flash_benchmarking():
+    seq_lens = [128, 1024, 4096, 16384]
+    Ds = [16, 32, 64]
+    precisions = [torch.float16, torch.float32]
+
+    for seq_len in seq_lens:
+        for D in Ds:
+            for precision in precisions:
+                Q = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                K = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                V = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                O = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                L = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                Br, Bc = 32, 32
+                n_blocks_forward = (seq_len + Br - 1) // Br
+                n_blocks_backward = (seq_len + Bc - 1) // Bc
+
+                gridForward = (n_blocks_forward, 1)
+                gridBackward = (n_blocks_backward, 1)
+
+                msForwardTriton = triton.testing.do_bench(lambda: FlashAttentionForwardTriton[gridForward](
+                    Q, K, V, O, L,
+                    Q.stride(0), Q.stride(1), Q.stride(2),
+                    K.stride(0), K.stride(1), K.stride(2),
+                    V.stride(0), V.stride(1), V.stride(2),
+                    O.stride(0), O.stride(1), O.stride(2),
+                    L.stride(0), L.stride(1),
+                    seq_len, seq_len,
+                    1/math.sqrt(D),
+                    D, Br, Bc, True))
+
+                print(f"Forward Triton | Len: {seq_len}, D: {D}, Type: {precision} -> {msForwardTriton:.4f} msForwardTriton")
+
+                dO = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                dQ = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                dK = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+                dV = torch.rand((1, seq_len, D), device='cuda', dtype = precision)
+
+                msBackwardTriton = triton.testing.do_bench(lambda: FlashAttentionBackwardTriton[gridBackward](
+                    Q, K, V, O, dO, L, Br, Bc, dQ, dK, dV, True, 1/math.sqrt(D), seq_len, seq_len, D,
+                    Q.stride(0), Q.stride(1), Q.stride(2),
+                    K.stride(0), K.stride(1), K.stride(2),
+                    V.stride(0), V.stride(1), V.stride(2),
+                    O.stride(0), O.stride(1), O.stride(2),
+                    dQ.stride(0), dQ.stride(1), dQ.stride(2),
+                    dK.stride(0), dK.stride(1), dK.stride(2),
+                    dV.stride(0), dV.stride(1), dV.stride(2),
+                    dO.stride(0), dO.stride(1), dO.stride(2),
+                    L.stride(0), L.stride(1)))
+
+                print(f"Forward Triton | Len: {seq_len}, D: {D}, Type: {precision} -> {msBackwardTriton:.4f} msBackwardTriton")
+                
+                Q.requires_grad_(True)
+                K.requires_grad_(True)
+                V.requires_grad_(True)
+
+                # 2. Benchmark Forward
+                # We can just call the function directly
+                causal_mask = torch.tril(torch.ones((seq_len, seq_len), device=Q.device)).bool()
+                ms_fwd_torch = triton.testing.do_bench(lambda: run_scaled_dot_product_attention(Q, K, V, mask=causal_mask))
+
+                output = run_scaled_dot_product_attention(Q, K, V, mask=causal_mask)
+
+                # 3. SETUP BACKWARD: Create gradients matching the shape of the REAL output
+                dO = torch.randn_like(output)
+
+                # 4. BENCHMARK BACKWARD: Call backward on the REAL output
+                ms_bwd_torch = triton.testing.do_bench(lambda: output.backward(dO, retain_graph=True))
+                print(f"PyTorch SDPA | Len: {seq_len}, D: {D} -> Fwd: {ms_fwd_torch:.4f} ms, Bwd: {ms_bwd_torch:.4f} ms")
+
+if __name__ == "__main__":
+    flash_benchmarking()
 
 def get_ddp_individual_parameters(module: torch.nn.Module) -> torch.nn.Module:
     """

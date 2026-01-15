@@ -1,0 +1,75 @@
+minko@hanmin:~/cs336/assignment2-systems$ uv run python ./tests/adapters.py
+Forward Triton | Len: 128, D: 16, Type: torch.float16 -> 0.0100 msForwardTriton
+Forward Triton | Len: 128, D: 16, Type: torch.float16 -> 0.0179 msBackwardTriton
+/home/minko/cs336/assignment2-systems/.venv/lib/python3.11/site-packages/torch/autograd/graph.py:823: UserWarning: Attempting to run cuBLAS, but there was no current CUDA context! Attempting to set the primary context... (Triggered internally at /pytorch/aten/src/ATen/cuda/CublasHandlePool.cpp:180.)
+  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+PyTorch SDPA | Len: 128, D: 16 -> Fwd: 0.0759 ms, Bwd: 0.1865 ms
+Forward Triton | Len: 128, D: 16, Type: torch.float32 -> 0.0086 msForwardTriton
+Forward Triton | Len: 128, D: 16, Type: torch.float32 -> 0.0182 msBackwardTriton
+PyTorch SDPA | Len: 128, D: 16 -> Fwd: 0.0784 ms, Bwd: 0.1663 ms
+Forward Triton | Len: 128, D: 32, Type: torch.float16 -> 0.0091 msForwardTriton
+Forward Triton | Len: 128, D: 32, Type: torch.float16 -> 0.0168 msBackwardTriton
+PyTorch SDPA | Len: 128, D: 32 -> Fwd: 0.0775 ms, Bwd: 0.1592 ms
+Forward Triton | Len: 128, D: 32, Type: torch.float32 -> 0.0097 msForwardTriton
+Forward Triton | Len: 128, D: 32, Type: torch.float32 -> 0.0256 msBackwardTriton
+PyTorch SDPA | Len: 128, D: 32 -> Fwd: 0.0869 ms, Bwd: 0.2058 ms
+Forward Triton | Len: 128, D: 64, Type: torch.float16 -> 0.0101 msForwardTriton
+Forward Triton | Len: 128, D: 64, Type: torch.float16 -> 0.0243 msBackwardTriton
+PyTorch SDPA | Len: 128, D: 64 -> Fwd: 0.0723 ms, Bwd: 0.1600 ms
+Forward Triton | Len: 128, D: 64, Type: torch.float32 -> 0.0113 msForwardTriton
+Forward Triton | Len: 128, D: 64, Type: torch.float32 -> 0.0376 msBackwardTriton
+PyTorch SDPA | Len: 128, D: 64 -> Fwd: 0.1079 ms, Bwd: 0.1735 ms
+Forward Triton | Len: 1024, D: 16, Type: torch.float16 -> 0.0207 msForwardTriton
+Forward Triton | Len: 1024, D: 16, Type: torch.float16 -> 0.0656 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 16 -> Fwd: 0.1250 ms, Bwd: 0.2436 ms
+Forward Triton | Len: 1024, D: 16, Type: torch.float32 -> 0.0299 msForwardTriton
+Forward Triton | Len: 1024, D: 16, Type: torch.float32 -> 0.0938 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 16 -> Fwd: 0.1653 ms, Bwd: 0.3349 ms
+Forward Triton | Len: 1024, D: 32, Type: torch.float16 -> 0.0267 msForwardTriton
+Forward Triton | Len: 1024, D: 32, Type: torch.float16 -> 0.0934 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 32 -> Fwd: 0.1111 ms, Bwd: 0.2496 ms
+Forward Triton | Len: 1024, D: 32, Type: torch.float32 -> 0.0451 msForwardTriton
+Forward Triton | Len: 1024, D: 32, Type: torch.float32 -> 0.1564 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 32 -> Fwd: 0.1652 ms, Bwd: 0.3296 ms
+Forward Triton | Len: 1024, D: 64, Type: torch.float16 -> 0.0436 msForwardTriton
+Forward Triton | Len: 1024, D: 64, Type: torch.float16 -> 0.1661 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 64 -> Fwd: 0.1159 ms, Bwd: 0.2537 ms
+Forward Triton | Len: 1024, D: 64, Type: torch.float32 -> 0.0491 msForwardTriton
+Forward Triton | Len: 1024, D: 64, Type: torch.float32 -> 0.4568 msBackwardTriton
+PyTorch SDPA | Len: 1024, D: 64 -> Fwd: 0.1756 ms, Bwd: 0.3560 ms
+Forward Triton | Len: 4096, D: 16, Type: torch.float16 -> 0.1472 msForwardTriton
+Forward Triton | Len: 4096, D: 16, Type: torch.float16 -> 0.5522 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 16 -> Fwd: 2.1189 ms, Bwd: 4.8203 ms
+Forward Triton | Len: 4096, D: 16, Type: torch.float32 -> 0.2295 msForwardTriton
+Forward Triton | Len: 4096, D: 16, Type: torch.float32 -> 0.8375 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 16 -> Fwd: 4.0832 ms, Bwd: 9.3981 ms
+Forward Triton | Len: 4096, D: 32, Type: torch.float16 -> 0.2218 msForwardTriton
+Forward Triton | Len: 4096, D: 32, Type: torch.float16 -> 1.0151 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 32 -> Fwd: 2.0982 ms, Bwd: 5.0097 ms
+Forward Triton | Len: 4096, D: 32, Type: torch.float32 -> 0.4368 msForwardTriton
+Forward Triton | Len: 4096, D: 32, Type: torch.float32 -> 1.8153 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 32 -> Fwd: 4.0389 ms, Bwd: 9.4010 ms
+Forward Triton | Len: 4096, D: 64, Type: torch.float16 -> 0.3259 msForwardTriton
+Forward Triton | Len: 4096, D: 64, Type: torch.float16 -> 1.8258 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 64 -> Fwd: 2.0051 ms, Bwd: 4.9341 ms
+Forward Triton | Len: 4096, D: 64, Type: torch.float32 -> 0.5571 msForwardTriton
+Forward Triton | Len: 4096, D: 64, Type: torch.float32 -> 4.8840 msBackwardTriton
+PyTorch SDPA | Len: 4096, D: 64 -> Fwd: 4.1172 ms, Bwd: 9.6102 ms
+Forward Triton | Len: 16384, D: 16, Type: torch.float16 -> 2.1536 msForwardTriton
+Forward Triton | Len: 16384, D: 16, Type: torch.float16 -> 7.2228 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 16 -> Fwd: 33.8703 ms, Bwd: 77.4185 ms
+Forward Triton | Len: 16384, D: 16, Type: torch.float32 -> 3.3804 msForwardTriton
+Forward Triton | Len: 16384, D: 16, Type: torch.float32 -> 12.0114 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 16 -> Fwd: 810.4100 ms, Bwd: 572.1057 ms
+Forward Triton | Len: 16384, D: 32, Type: torch.float16 -> 3.2148 msForwardTriton
+Forward Triton | Len: 16384, D: 32, Type: torch.float16 -> 14.6438 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 32 -> Fwd: 34.0726 ms, Bwd: 81.3670 ms
+Forward Triton | Len: 16384, D: 32, Type: torch.float32 -> 6.0144 msForwardTriton
+Forward Triton | Len: 16384, D: 32, Type: torch.float32 -> 27.2643 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 32 -> Fwd: 809.1843 ms, Bwd: 572.2204 ms
+Forward Triton | Len: 16384, D: 64, Type: torch.float16 -> 4.3718 msForwardTriton
+Forward Triton | Len: 16384, D: 64, Type: torch.float16 -> 25.8048 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 64 -> Fwd: 33.9236 ms, Bwd: 76.8154 ms
+Forward Triton | Len: 16384, D: 64, Type: torch.float32 -> 8.1013 msForwardTriton
+Forward Triton | Len: 16384, D: 64, Type: torch.float32 -> 69.7180 msBackwardTriton
+PyTorch SDPA | Len: 16384, D: 64 -> Fwd: 803.8697 ms, Bwd: 572.9556 ms
