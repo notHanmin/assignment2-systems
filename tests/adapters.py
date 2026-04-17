@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Type
+from torch import nn
 
 import torch
 import math
@@ -10,6 +11,8 @@ import triton.language as tl
 
 import sys
 import os
+
+import torch.distributed as dist
 
 # Add the cs336-basics directory to the path
 cs336_basics_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'cs336-basics'))
@@ -523,6 +526,33 @@ def flash_benchmarking():
 if __name__ == "__main__":
     flash_benchmarking()
 
+class DDPIndividualParameters(nn.Module):
+
+    def __init__(self, module: torch.nn.Module, world_size):
+        super().__init__()
+        self.module = module
+        self.world_size = world_size
+        self.handles = []
+        for param in module.parameters():
+            dist.broadcast(param.data, src=0)
+            if param.requires_grad:
+                param.register_post_accumulate_grad_hook(self.hook)
+
+    def forward(self, *inputs, **kwargs):
+        return self.module(*inputs, **kwargs)
+    
+    def hook(self, param):
+        handle = dist.all_reduce(param.grad, async_op=True)
+        self.handles.append(handle)
+
+    def finish_gradient_synchronization(self):
+        for handle in self.handles:
+            handle.wait()
+        for param in self.module.parameters():
+            if param.grad is not None:
+                param.grad.div_(self.world_size)
+        self.handles.clear()
+
 def get_ddp_individual_parameters(module: torch.nn.Module) -> torch.nn.Module:
     """
     Returns a torch.nn.Module container that handles
@@ -541,7 +571,7 @@ def get_ddp_individual_parameters(module: torch.nn.Module) -> torch.nn.Module:
         Instance of a DDP class.
     """
     # For example: return DDPIndividualParameters(module)
-    raise NotImplementedError
+    return DDPIndividualParameters(module, dist.get_world_size())
 
 
 def ddp_individual_parameters_on_after_backward(ddp_model: torch.nn.Module, optimizer: torch.optim.Optimizer):
@@ -556,8 +586,130 @@ def ddp_individual_parameters_on_after_backward(ddp_model: torch.nn.Module, opti
             Optimizer being used with the DDP-wrapped model.
     """
     # For example: ddp_model.finish_gradient_synchronization()
-    raise NotImplementedError
+    ddp_model.finish_gradient_synchronization()
 
+class DDPOverlapBucketed(nn.Module):
+
+    def __init__(self, module: torch.nn.Module, world_size, bucket_size_mb: float):
+        super().__init__()
+        self.module = module
+        self.world_size = world_size
+        self.handles = []
+        self.pending_bucket_indices = []
+        self.buckets = []
+        # Map parameter to bucket
+        self.p_to_bucket_map = {}
+        # Expected number of parameter in each bucket
+        self.buckets_expected_counts = []
+        # Track current bucket progress (initialized after building buckets)
+        self.bucket_ready_counts = []
+        self.bucket_buffers = []
+        self.p_to_offset = {}
+
+        for param in module.parameters():
+            dist.broadcast(param.data, src=0)
+            if param.requires_grad:
+                param.register_post_accumulate_grad_hook(self.hook)
+
+        limit_bytes = float("inf") if bucket_size_mb is None else bucket_size_mb * 1024 * 1024
+        current_bucket = []
+        current_bucket_size = 0
+        current_bucket_dtype = None
+        reversed_params = list(module.parameters())[::-1]
+
+        for p in reversed_params:
+            if not p.requires_grad:
+                continue
+
+            p_bytes = p.numel() * p.element_size()
+
+            if len(current_bucket) == 0:
+                current_bucket = [p]
+                current_bucket_size = p_bytes
+                current_bucket_dtype = p.dtype
+                continue
+
+            same_dtype = p.dtype == current_bucket_dtype
+            fits_size = (current_bucket_size + p_bytes) <= limit_bytes
+
+            if same_dtype and fits_size:
+                current_bucket.append(p)
+                current_bucket_size += p_bytes
+            else:
+                self.buckets.append(current_bucket)
+                current_bucket = [p]
+                current_bucket_size = p_bytes
+                current_bucket_dtype = p.dtype
+
+        if current_bucket:
+            self.buckets.append(current_bucket)
+
+        self.bucket_ready_counts = [0] * len(self.buckets)
+
+        current_bucket_index = 0
+        for bucket in self.buckets:
+            self.buckets_expected_counts.append(len(bucket))
+            total_numel = 0
+
+            for p in bucket:
+                self.p_to_bucket_map[p] = current_bucket_index
+                self.p_to_offset[p] = total_numel
+                total_numel += p.numel()
+            current_bucket_index += 1
+
+            reference_p = bucket[0]
+            buffer = torch.zeros(
+                total_numel,
+                device=reference_p.device,
+                dtype=reference_p.dtype
+            )
+            self.bucket_buffers.append(buffer)
+
+    def forward(self, *inputs, **kwargs):
+        return self.module(*inputs, **kwargs)
+
+    def hook(self, param):
+        bucket_index = self.p_to_bucket_map[param]
+        self.bucket_ready_counts[bucket_index] += 1
+
+        if self.bucket_ready_counts[bucket_index] == self.buckets_expected_counts[bucket_index]:
+            bucket = self.buckets[bucket_index]
+            flat_buffer = self.bucket_buffers[bucket_index]
+
+            for p in bucket:
+                start = self.p_to_offset[p]
+                end = start + p.numel()
+                if p.grad is None:
+                    flat_buffer[start:end].zero_()
+                else:
+                    flat_buffer[start:end].copy_(p.grad.detach().view(-1))
+
+            handle = dist.all_reduce(flat_buffer, async_op=True)
+            self.handles.append(handle)
+            self.pending_bucket_indices.append(bucket_index)
+
+    def finish_gradient_synchronization(self):
+        for handle in self.handles:
+            handle.wait()
+
+        for bucket_index in self.pending_bucket_indices:
+            flat_buffer = self.bucket_buffers[bucket_index]
+            flat_buffer.div_(self.world_size)
+            for p in self.buckets[bucket_index]:
+                if p.grad is None:
+                    continue
+                start = self.p_to_offset[p]
+                end = start + p.numel()
+                p.grad.copy_(flat_buffer[start:end].view_as(p))
+
+        self.handles.clear()
+        self.pending_bucket_indices.clear()
+        self.bucket_ready_counts = [0] * len(self.buckets)
+
+    def reset_step_state(self):
+        self.handles.clear()
+        self.pending_bucket_indices.clear()
+        self.bucket_ready_counts = [0] * len(self.buckets)
 
 def get_ddp_bucketed(module: torch.nn.Module, bucket_size_mb: float) -> torch.nn.Module:
     """
@@ -577,8 +729,7 @@ def get_ddp_bucketed(module: torch.nn.Module, bucket_size_mb: float) -> torch.nn
     Returns:
         Instance of a DDP class.
     """
-    raise NotImplementedError
-
+    return DDPOverlapBucketed(module, dist.get_world_size(), bucket_size_mb)
 
 def ddp_bucketed_on_after_backward(ddp_model: torch.nn.Module, optimizer: torch.optim.Optimizer):
     """
@@ -591,9 +742,7 @@ def ddp_bucketed_on_after_backward(ddp_model: torch.nn.Module, optimizer: torch.
         optimizer: torch.optim.Optimizer
             Optimizer being used with the DDP-wrapped model.
     """
-    # For example: ddp_model.finish_gradient_synchronization()
-    raise NotImplementedError
-
+    ddp_model.finish_gradient_synchronization()
 
 def ddp_bucketed_on_train_batch_start(ddp_model: torch.nn.Module, optimizer: torch.optim.Optimizer):
     """
@@ -605,8 +754,7 @@ def ddp_bucketed_on_train_batch_start(ddp_model: torch.nn.Module, optimizer: tor
         optimizer: torch.optim.Optimizer
             Optimizer being used with the DDP-wrapped model.
     """
-    raise NotImplementedError
-
+    ddp_model.reset_step_state()
 
 def get_sharded_optimizer(params, optimizer_cls: Type[torch.optim.Optimizer], **kwargs) -> torch.optim.Optimizer:
     """
